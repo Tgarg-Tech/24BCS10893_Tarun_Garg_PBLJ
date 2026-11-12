@@ -58,7 +58,8 @@ public class SecurityConfig {
                                 "/api/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/complaints/track/**",
-                                "/api/categories",
+                                "/api/categories/**",
+                                "/api/departments",
                                 "/actuator/health",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",

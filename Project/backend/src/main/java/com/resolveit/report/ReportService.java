@@ -2,6 +2,7 @@ package com.resolveit.report;
 
 import com.resolveit.common.Constants;
 import com.resolveit.complaint.ComplaintRepository;
+import com.resolveit.complaint.ComplaintSpecifications;
 import com.resolveit.department.DepartmentMemberRepository;
 import com.resolveit.entity.Complaint;
 import com.resolveit.exception.ForbiddenException;
@@ -10,6 +11,8 @@ import com.resolveit.security.UserPrincipal;
 import com.resolveit.workflow.ComplaintStatus;
 import com.resolveit.workflow.MemberType;
 import com.resolveit.workflow.Priority;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -270,8 +273,12 @@ public class ReportService {
             Priority priority,
             ComplaintStatus status
     ) {
+        Specification<Complaint> spec = ComplaintSpecifications.withFilters(
+                status, priority, categoryId, requestedDepartmentId, null, null, from, to
+        );
+
         if (Constants.ROLE_ADMIN.equals(principal.getRoleName())) {
-            return complaintRepository.findForReportFiltered(from, to, requestedDepartmentId, categoryId, priority, status);
+            return complaintRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
         }
         if (Constants.ROLE_MANAGER.equals(principal.getRoleName())) {
             List<Long> managedDeptIds = departmentMemberRepository.findActiveDepartmentIdsByUserIdAndMemberType(
@@ -282,10 +289,8 @@ public class ReportService {
             if (requestedDepartmentId != null && !managedDeptIds.contains(requestedDepartmentId)) {
                 throw new ForbiddenException("You can only view reports for your own department");
             }
-            return complaintRepository.findForReportFiltered(from, to, requestedDepartmentId, categoryId, priority, status)
-                    .stream()
-                    .filter(c -> c.getDepartment() != null && managedDeptIds.contains(c.getDepartment().getId()))
-                    .toList();
+            spec = spec.and(ComplaintSpecifications.inDepartments(managedDeptIds));
+            return complaintRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
         }
         throw new ForbiddenException("You are not authorized to access reports");
     }
